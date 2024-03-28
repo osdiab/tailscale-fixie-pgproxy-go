@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/proxy"
+
 	"tailscale.com/client/tailscale"
 	"tailscale.com/metrics"
 	"tailscale.com/tsnet"
@@ -100,10 +102,10 @@ func main() {
 	log.Fatal(p.Serve(ln))
 }
 
-// proxy is a postgres wire protocol proxy, which strictly enforces
+// pgProxy is a postgres wire protocol pgProxy, which strictly enforces
 // the security of the TLS connection to its upstream regardless of
 // what the client's TLS configuration is.
-type proxy struct {
+type pgProxy struct {
 	upstreamAddr     string // "my.database.com:5432"
 	upstreamHost     string // "my.database.com"
 	upstreamCertPool *x509.CertPool
@@ -118,7 +120,7 @@ type proxy struct {
 // newProxy returns a proxy that forwards connections to
 // upstreamAddr. The upstream's TLS session is verified using the CA
 // cert(s) in upstreamCAPath.
-func newProxy(upstreamAddr, upstreamCAPath string, client *tailscale.LocalClient) (*proxy, error) {
+func newProxy(upstreamAddr, upstreamCAPath string, client *tailscale.LocalClient) (*pgProxy, error) {
 	bs, err := os.ReadFile(upstreamCAPath)
 	if err != nil {
 		return nil, err
@@ -137,7 +139,7 @@ func newProxy(upstreamAddr, upstreamCAPath string, client *tailscale.LocalClient
 		return nil, err
 	}
 
-	return &proxy{
+	return &pgProxy{
 		upstreamAddr:     upstreamAddr,
 		upstreamHost:     h,
 		upstreamCertPool: upstreamCertPool,
@@ -148,7 +150,7 @@ func newProxy(upstreamAddr, upstreamCAPath string, client *tailscale.LocalClient
 }
 
 // Expvar returns p's monitoring metrics.
-func (p *proxy) Expvar() expvar.Var {
+func (p *pgProxy) Expvar() expvar.Var {
 	ret := &metrics.Set{}
 	ret.Set("sessions_active", &p.activeSessions)
 	ret.Set("sessions_started", &p.startedSessions)
@@ -160,7 +162,7 @@ func (p *proxy) Expvar() expvar.Var {
 // the configured upstream. ln can be any net.Listener, but all client
 // connections must originate from tailscale IPs that can be verified
 // with WhoIs.
-func (p *proxy) Serve(ln net.Listener) error {
+func (p *pgProxy) Serve(ln net.Listener) error {
 	var lastSessionID int64
 	for {
 		c, err := ln.Accept()
@@ -197,7 +199,7 @@ var (
 
 // serve proxies the postgres client on c to the proxy's upstream,
 // enforcing strict TLS to the upstream.
-func (p *proxy) serve(sessionID int64, c net.Conn) error {
+func (p *pgProxy) serve(sessionID int64, c net.Conn) error {
 	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -253,10 +255,24 @@ func (p *proxy) serve(sessionID int64, c net.Conn) error {
 		return fmt.Errorf("unrecognized initial packet = % 02x", buf)
 	}
 
-	// Dial & verify upstream connection.
-	var d net.Dialer
-	d.Timeout = 10 * time.Second
-	upc, err := d.Dial("tcp", p.upstreamAddr)
+	// Dial & verify upstream connection via Fixie SOCKS host
+	fixie_data := strings.Split(os.Getenv("FIXIE_SOCKS_HOST"), "@")
+	fixie_addr := fixie_data[1]
+	auth_data := strings.Split(fixie_data[0], ":")
+	auth := proxy.Auth{
+		User:     auth_data[0],
+		Password: auth_data[1],
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", fixie_addr, &auth, proxy.Direct)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "can't connect to the proxy:", err)
+		os.Exit(1)
+	}
+	// End Fixie SOCKS host dialer code
+
+	// dialer.Timeout = 10 * time.Second
+	upc, err := dialer.Dial("tcp", p.upstreamAddr)
 	if err != nil {
 		p.errors.Add("network-error", 1)
 		return fmt.Errorf("upstream dial: %v", err)
