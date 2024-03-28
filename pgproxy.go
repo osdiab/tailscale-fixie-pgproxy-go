@@ -42,6 +42,10 @@ var (
 	tailscaleDir = flag.String("state-dir", "", "Directory in which to store the Tailscale auth state")
 )
 
+func getFixieSocksHost() string {
+	return os.Getenv("FIXIE_SOCKS_HOST")
+}
+
 func main() {
 	flag.Parse()
 	if *hostname == "" {
@@ -55,6 +59,10 @@ func main() {
 	}
 	if *tailscaleDir == "" {
 		log.Fatal("missing --state-dir")
+	}
+
+	if getFixieSocksHost() == "" {
+		log.Print("missing FIXIE_SOCKS_HOST environment variable, use the Proxy URL in the Fixie dashboard")
 	}
 
 	ts := &tsnet.Server{
@@ -256,7 +264,7 @@ func (p *pgProxy) serve(sessionID int64, c net.Conn) error {
 	}
 
 	// Dial & verify upstream connection via Fixie SOCKS host
-	fixie_data := strings.Split(os.Getenv("FIXIE_SOCKS_HOST"), "@")
+	fixie_data := strings.Split(getFixieSocksHost(), "@")
 	fixie_addr := fixie_data[1]
 	auth_data := strings.Split(fixie_data[0], ":")
 	auth := proxy.Auth{
