@@ -48,8 +48,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag_name.outputs.tag_name }}
-          release_name: Release ${{ steps.tag_name.outputs.tag_name }}
-          body: "Release ${{ steps.tag_name.outputs.tag_name }}"
           files: |
             release/pgproxy-fixie-windows-amd64.zip
             release/pgproxy-fixie-darwin-amd64.tar.gz
