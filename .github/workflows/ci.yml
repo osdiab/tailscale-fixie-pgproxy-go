@@ -34,12 +34,22 @@ jobs:
           zip -r release/pgproxy-fixie-windows-amd64.zip release/pgproxy-fixie-windows-amd64.exe
           tar -czvf release/pgproxy-fixie-darwin-amd64.tar.gz release/pgproxy-fixie-darwin-amd64
           tar -czvf release/pgproxy-fixie-linux-amd64.tar.gz release/pgproxy-fixie-linux-amd64
-          echo "::set-output name=release_assets::release/pgproxy-fixie-windows-amd64.zip,release/pgproxy-fixie-darwin-amd64.tar.gz,release/pgproxy-fixie-linux-amd64.tar.gz"
+          echo "release_assets=release/pgproxy-fixie-windows-amd64.zip,release/pgproxy-fixie-darwin-amd64.tar.gz,release/pgproxy-fixie-linux-amd64.tar.gz" >> $GITHUB_OUTPUT
+
+      - name: Determine tag name
+        if: github.ref == 'refs/heads/main'
+        id: tag_name
+        run: |
+          echo "TAG_NAME=v$(date +'%Y%m%d%H%M%S')-$(echo $GITHUB_SHA | head -c 8)" >> $GITHUB_ENV
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload release assets
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag_name.outputs.tag_name }}
+          release_name: Release ${{ steps.tag_name.outputs.tag_name }}
+          body: "Release ${{ steps.tag_name.outputs.tag_name }}"
           files: |
             release/pgproxy-fixie-windows-amd64.zip
             release/pgproxy-fixie-darwin-amd64.tar.gz
