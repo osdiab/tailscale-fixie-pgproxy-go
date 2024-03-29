@@ -1,4 +1,13 @@
-# pgproxy
+# pgproxy-fixie
+
+This is a slightly modified version of Tailscale's `pgproxy`, except that it
+passes requests through a Fixie SOCKS proxy so that requests come from a static
+Fixie IP. This is useful for allowing developer access to Postgres databases
+that support restricting requests from static IPs, like
+[Neon](https://neon.tech), so that you can provide authenticated, secure
+developer access to your database via Tailscale credentials.
+
+## Original Description
 
 The pgproxy server is a proxy for the Postgres wire protocol. [Read
 more in our blog

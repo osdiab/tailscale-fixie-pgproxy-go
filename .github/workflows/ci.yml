@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.1'
+
+      - name: Build pgproxy
+        run: go build -o pgproxy-fixie pgproxy.go
+
+      - name: Create release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir release
+          GOOS=windows GOARCH=amd64 go build -o release/pgproxy-fixie-windows-amd64.exe pgproxy.go
+          GOOS=darwin GOARCH=amd64 go build -o release/pgproxy-fixie-darwin-amd64 pgproxy.go
+          GOOS=linux GOARCH=amd64 go build -o release/pgproxy-fixie-linux-amd64 pgproxy.go
+          zip -r release/pgproxy-fixie-windows-amd64.zip release/pgproxy-fixie-windows-amd64.exe
+          tar -czvf release/pgproxy-fixie-darwin-amd64.tar.gz release/pgproxy-fixie-darwin-amd64
+          tar -czvf release/pgproxy-fixie-linux-amd64.tar.gz release/pgproxy-fixie-linux-amd64
+          echo "::set-output name=release_assets::release/pgproxy-fixie-windows-amd64.zip,release/pgproxy-fixie-darwin-amd64.tar.gz,release/pgproxy-fixie-linux-amd64.tar.gz"
+
+      - name: Upload release assets
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/pgproxy-fixie-windows-amd64.zip
+            release/pgproxy-fixie-darwin-amd64.tar.gz
+            release/pgproxy-fixie-linux-amd64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
