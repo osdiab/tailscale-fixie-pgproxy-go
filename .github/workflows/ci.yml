@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -25,7 +27,7 @@ jobs:
         run: go build -o pgproxy-fixie pgproxy.go
 
       - name: Create release
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           mkdir release
           GOOS=windows GOARCH=amd64 go build -o release/pgproxy-fixie-windows-amd64.exe pgproxy.go
@@ -34,7 +36,6 @@ jobs:
           zip -r release/pgproxy-fixie-windows-amd64.zip release/pgproxy-fixie-windows-amd64.exe
           tar -czvf release/pgproxy-fixie-darwin-amd64.tar.gz release/pgproxy-fixie-darwin-amd64
           tar -czvf release/pgproxy-fixie-linux-amd64.tar.gz release/pgproxy-fixie-linux-amd64
-          echo "release_assets=release/pgproxy-fixie-windows-amd64.zip,release/pgproxy-fixie-darwin-amd64.tar.gz,release/pgproxy-fixie-linux-amd64.tar.gz" >> $GITHUB_OUTPUT
 
       - name: Upload release assets
         if: startsWith(github.ref, 'refs/tags/')
