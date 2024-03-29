@@ -110,7 +110,7 @@ func main() {
 	log.Fatal(p.Serve(ln))
 }
 
-// pgProxy is a postgres wire protocol pgProxy, which strictly enforces
+// pgProxy is a postgres wire protocol proxy, which strictly enforces
 // the security of the TLS connection to its upstream regardless of
 // what the client's TLS configuration is.
 type pgProxy struct {
