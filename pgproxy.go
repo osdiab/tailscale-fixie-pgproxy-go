@@ -72,8 +72,8 @@ func main() {
 		Logf: logger.Discard,
 	}
 
-	if os.Getenv("TS_AUTHKEY") == "" {
-		log.Print("Note: you need to run this with TS_AUTHKEY=... the first time, to join your tailnet of choice.")
+	if os.Getenv("TAILSCALE_AUTHKEY") == "" {
+		log.Print("Note: you need to run this with TAILSCALE_AUTHKEY=... the first time, to join your tailnet of choice.")
 	}
 
 	tsclient, err := ts.LocalClient()
